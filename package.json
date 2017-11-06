@@ -35,6 +35,7 @@
     "@creditkarma/thrift-parser": "0.0.14",
     "@creditkarma/thrift-server-express": "0.0.36",
     "@creditkarma/thrift-server-hapi": "0.0.36",
-    "@creditkarma/thrift-typescript": "0.0.15"
+    "@creditkarma/thrift-typescript": "0.0.15",
+    "body-parser": "^1.18.2"
   }
 }

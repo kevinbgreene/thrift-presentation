@@ -1,8 +1,8 @@
+import * as Hapi from 'hapi';
+
 import {
-  createWebServer,
-  TBinaryProtocol,
-  TBufferedTransport,
-} from 'thrift';
+  ThriftPlugin,
+} from '@creditkarma/thrift-server-hapi';
 
 import {
   User,
@@ -25,35 +25,64 @@ function findUser(id: number): IMockUser | undefined {
   })[0];
 }
 
-const serviceHandler: UserService.IHandler<void> = {
-  getUser(id: number): User {
-    const user = findUser(id);
-    if (user !== undefined) {
-      return new User(user);
-    } else {
-      throw new UserServiceException({
-        message: `Unable to find user for id: ${id}`,
-      });
-    }
+const serviceProcessor: UserService.Processor<Hapi.Request> =
+  new UserService.Processor({
+    getUser(id: number, context?: Hapi.Request): User {
+      const user = findUser(id);
+      if (user !== undefined) {
+        return new User(user);
+      } else {
+        throw new UserServiceException({
+          message: `Unable to find user for id: ${id}`,
+        });
+      }
+    },
+  });
+
+const server = new Hapi.Server({ debug: { request: ['error'] } });
+
+server.connection({ port: SERVER_CONFIG.port });
+
+/**
+ * Register the thrift plugin.
+ *
+ * This will allow us to define Hapi routes for our thrift service(s).
+ * They behave like any other HTTP route handler, so you can mix and match
+ * thrift / REST endpoints on the same server instance.
+ */
+server.register(ThriftPlugin, (err: any) => {
+  if (err) {
+    throw err;
+  }
+});
+
+/**
+ * Route to our thrift service.
+ *
+ * Payload parsing is disabled - the thrift plugin parses the raw request
+ * using whichever protocol is configured (binary, compact, json...)
+ */
+server.route({
+  method: 'POST',
+  path: '/',
+  handler: {
+    thrift: {
+      service: serviceProcessor,
+    },
   },
-};
-
-// ServiceOptions: The I/O stack for the service
-const serviceOptions = {
-  handler: serviceHandler,
-  processor: UserService,
-  protocol: TBinaryProtocol,
-  transport: TBufferedTransport,
-};
-
-// ServerOptions: Define server features
-const serverOpt = {
-  services: {
-    '/': serviceOptions,
+  config: {
+    payload: {
+      parse: false,
+    },
   },
-};
+});
 
-// Create and start the web server
-createWebServer<UserService.Processor<void>, UserService.IHandler<void>>(serverOpt).listen(SERVER_CONFIG.port, () => {
-  console.log(`Thrift server listening at http://${SERVER_CONFIG.hostName}:${SERVER_CONFIG.port}`);
+/**
+ * Finally, we're ready to start the server.
+ */
+server.start((err: any) => {
+  if (err) {
+    throw err;
+  }
+  console.log('info', `Server running on port ${SERVER_CONFIG.port}`);
 });

@@ -1,12 +1,16 @@
 import {
-  ConnectOptions,
-  createHttpClient,
-  createHttpConnection,
-  createWebServer,
+  createClient,
+  fromAxios,
   HttpConnection,
-  TBinaryProtocol,
-  TBufferedTransport,
-} from 'thrift';
+} from '@creditkarma/thrift-client';
+
+import {
+  thriftExpress,
+} from '@creditkarma/thrift-server-express';
+
+import { AxiosInstance, default as axios } from 'axios';
+import * as bodyParser from 'body-parser';
+import * as express from 'express';
 
 import {
   ContentService,
@@ -36,24 +40,11 @@ function findPost(id: number): IMockPost | undefined {
   })[0];
 }
 
-const options: ConnectOptions = {
-  transport: TBufferedTransport,
-  protocol: TBinaryProtocol,
-  https: false,
-  headers: {
-    host: IDENTITY_SERVER.hostName,
-  },
-};
+// SET UP IDENTITY CLIENT
 
-const userConnection: HttpConnection =
-  createHttpConnection(IDENTITY_SERVER.hostName, IDENTITY_SERVER.port, options);
-
-const userClient: UserService.Client =
-  createHttpClient(UserService.Client, userConnection);
-
-userConnection.on('error', (err: Error) => {
-  process.exit(1);
-});
+const axiosUserInstance: AxiosInstance = axios.create();
+const userConnection: HttpConnection<UserService.Client> = fromAxios(axiosUserInstance, IDENTITY_SERVER);
+const userClient: UserService.Client = createClient(UserService.Client, userConnection);
 
 const serviceHandler: ContentService.IHandler<void> = {
   getPost(id: number): Promise<Post> {
@@ -76,23 +67,16 @@ const serviceHandler: ContentService.IHandler<void> = {
   },
 };
 
-// ServiceOptions: The I/O stack for the service
-const serviceOptions = {
-  handler: serviceHandler,
-  processor: ContentService,
-  protocol: TBinaryProtocol,
-  transport: TBufferedTransport,
-};
+// SET UP OUR EXPRESS INSTANCE
 
-// ServerOptions: Define server features
-const serverOpt = {
-  services: {
-    '/': serviceOptions,
-  },
-};
+const app: express.Application = express();
 
-// Create and start the web server
-createWebServer<ContentService.Processor<void>, ContentService.IHandler<void>>(serverOpt)
-  .listen(CONTENT_SERVER.port, () => {
-    console.log(`Thrift server listening at http://${CONTENT_SERVER.hostName}:${CONTENT_SERVER.port}`);
-  });
+app.use(
+  '/',
+  bodyParser.raw(),
+  thriftExpress(ContentService.Processor, serviceHandler),
+);
+
+app.listen(CONTENT_SERVER.port, () => {
+  console.log(`Thrift server listening at http://${CONTENT_SERVER.hostName}:${CONTENT_SERVER.port}`);
+});
