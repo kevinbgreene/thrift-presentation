@@ -8,6 +8,7 @@
     "codegen": "thrift-typescript --sourceDir thrift --outDir src/codegen",
     "lint": "tslint --fix ./src/**/*.ts",
     "build": "npm run codegen && npm run lint && tsc",
+    "start": "npm run build && node ./dist/index.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
