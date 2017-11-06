@@ -14,7 +14,7 @@
 # Problem: Type-Safety Across Node.js Services
 
 * Type-safety within our service source and across service boundaries
-* Communication across multiple service runtimes (JVM, Node)
+* Communication across multiple service runtimes (JVM, Node...)
 * Compile-time guarantees for service contracts
 
 ---
@@ -22,7 +22,8 @@
 # Solution: Thrift and TypeScript
 
 * TypeScript provides compile-time type-safety for service source
-* Thrift provides compile-time type-safety for service contracts
+* Thrift provides type-safety between services
+* TypeScript generated from Thrift provides type-safety for service contracts
 
 ---
 
@@ -33,16 +34,16 @@
 * Service clients and service processors are generated
 * Code generators for many languages (Java, JS, PHP, Go, Lua...)
 * https://thrift.apache.org/
+* https://github.com/apache/thrift
 
 ---
 
-# Existing Apache Thrift Library
+# Complications with Existing Apache Thrift Library
 
 * Code generator written in C++
 * Node.js libs not well-maintained
 * Doesn't leverage common OSS libraries and frameworks
 * Generated TypeScript code is lacking
-* https://github.com/apache/thrift
 
 ---
 
@@ -56,18 +57,18 @@
 
 # A Modular Suite of Tools
 
-* Solve problems in a modular way
 * Thrift Parser
 * Thrift TypeScript
 * Thrift Server (Hapi and Express)
 * Thrift Client (Request and Axios)
+* Thrift Utils (encode and decode Thrift objects)
 
 ---
 
 # Native TypeScript Codegen
 
 * Easy to integrate into a JS build pipeline
-* Easy for the JS community to contribute to
+* Easy for the JS community (consumers) to contribute to
 * Strictly compiled TypeScript source
 * Extensible to meet custom requirements
 * Generated code can be used with the Apache Thrift libs
@@ -85,18 +86,73 @@ $ npm install --save @creditkarma/thrift-parser
 
 ---
 
+# Parser Usage
+
+```typescript
+import { parse, ThriftDocument } from '@creditkarma/thrift-parser'
+
+const rawThrift: string =`
+  struct MyStruct {
+    1: required i32 id
+  }
+`;
+
+const thriftAST: ThriftDocument = parse(rawThrift);
+```
+
+---
+
+# Parser Demo
+
+---
+
 # Thrift TypeScript
 
 * A code generator that consumes Thrift files and produces TypeScript files
 * Generated code can be compiled with strict compiler flags
 * Generated code is compatible with the Apache Thrift libs
 
+```sh
+$ npm install --save @creditkarma/thrift-typescript
+```
+
 ---
 
-# Use Libraries Familiar to Node.js Developers
+# Generator Usage: JS API
 
-* Servers: Hapi / Express
-* Clients: Request / Axios
+```typescript
+import { generate } from '@creditkarma/thrift-typescript';
+
+generate({
+  rootDir: '.',
+  sourceDir: 'thirft',
+  outDir: 'codegen',
+  files: [
+    'simple.thrift'
+  ]
+});
+```
+
+---
+
+# Generator Usage: CLI
+
+```sh
+$ thrift-typescript --sourceDir thrift --outDir codegen simple.thrift
+```
+
+---
+
+# Generator Demo
+
+---
+
+# Thrift Server
+
+* Thrift core implementation in TypeScript
+* Built using common HTTP client / server libraries
+* Hapi / Express used for servers
+* Request / Axios used for clients
 
 ---
 
@@ -114,6 +170,95 @@ $ npm install --save @creditkarma/thrift-server-express
 
 ---
 
+# Example Service
+
+```c
+struct Item {
+  1: i32 id
+  2: string name
+}
+
+service TestService {
+  Item getItem(1: i32 itemId)
+}
+```
+
+---
+
+# Usage: Define Service Handlers
+
+```typescript
+import * as express from 'express';
+import { Item, TestService } from './generated/TestService';
+
+export const serviceHandlers: TestService.IHandler<express.Request> = {
+  getItem(itemId: number, context?: express.Request): Item | Promise<Item> {
+    return new Item()
+  }
+}
+```
+
+---
+
+# Express Usage: Register Middleware
+
+```typescript
+import * as bodyParser from 'body-parser';
+import * as express from 'express';
+import { thriftExpress } from '@creditkarma/thrift-server-express';
+import { serviceHandlers } from './handlers';
+import { TestService } from './generated/TestService';
+
+const app: express.Application = express();
+
+app.use('/thrift', bodyParser.raw(),
+  thriftExpress(TestService.Processor, serviceHandlers),
+);
+```
+
+---
+
+# Hapi Usage: Register Plugin
+
+```typescript
+import * as Hapi from 'hapi';
+import { ThriftPlugin } from '@creditkarma/thrift-server-hapi';
+import { serviceHandlers } from './handlers';
+import { TestService } from './generated/TestService';
+
+const server = new Hapi.Server({ debug: { request: ['error'] } });
+server.connection({ port: SERVER_CONFIG.port });
+
+server.register(ThriftPlugin, (err: any) => {
+  if (err) {
+    throw err
+  }
+});
+```
+
+---
+
+# Hapi Usage: Define Service Handlers
+
+```typescript
+server.route({
+  method: 'POST',
+  path: '/thrift',
+  handler: {
+    thrift: {
+      service: new TestService.Processor(serviceHandlers),
+    },
+  },
+  config: { payload: { parse: false } },
+});
+```
+
+---
+
+# Server Demo
+
+---
+
 # Thrift Client: Request and Axios
 
 * Provide base Request or Axios instance
@@ -122,3 +267,39 @@ $ npm install --save @creditkarma/thrift-server-express
 ```sh
 $ npm install --save @creditkarma/thrift-client
 ```
+
+---
+
+# Client Usage: Instantiate Client
+
+```typescript
+import {
+  RequestInstance,
+  createClient,
+  fromAxios,
+  HttpConnection,
+} from '@creditkarma/thrift-client';
+import { TestService } from './generated';
+
+const requestClient: AxiosInstance = axios.create();
+const connection: HttpConnection<TestService.Client> = fromAxios(requestClient, config);
+const serviceClient: TestService.Client = createClient(TestService.Client, connection);
+```
+
+---
+
+# Client Usage: Call Service Methods
+
+```typescript
+app.get('/item', (req: express.Request, res: express.Response): void => {
+  serviceClient.getItem(req.query.id).then(() => {
+    res.send('success');
+  }, (err: any) => {
+    res.status(500).send(err);
+  })
+});
+```
+
+---
+
+# Client Demo
