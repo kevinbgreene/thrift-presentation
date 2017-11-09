@@ -1,7 +1,7 @@
 export const IDENTITY_SERVER = {
   hostName: 'localhost',
   port: 8085,
-  path: '/',
+  path: '/v1',
 };
 
 export const CONTENT_SERVER = {

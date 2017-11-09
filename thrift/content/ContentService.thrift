@@ -1,6 +1,6 @@
 namespace js com.content
 
-include 'identity/v2/UserService.thrift'
+include 'identity/v1/UserService.thrift'
 
 struct PublishedDate {
   1: i32 month

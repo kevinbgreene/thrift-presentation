@@ -43,16 +43,18 @@ app.get('/healthcheck', (req, res) => {
   res.send('success');
 });
 
-app.get('/user', (req, res) => {
-  userClient.getUser(req.query.id).then((user: User) => {
+app.get('/user/:id', (req, res) => {
+  console.log(`Gateway: fetching user with id: ${req.params.id}`);
+  userClient.getUser(req.params.id).then((user: User) => {
     res.send(user);
   }, (err: any) => {
     res.send(err).status(500);
   });
 });
 
-app.get('/post', (req, res) => {
-  contentClient.getPost(req.query.id).then((post: Post) => {
+app.get('/post/:id', (req, res) => {
+  console.log(`Gateway: fetching post with id: ${req.params.id}`);
+  contentClient.getPost(req.params.id).then((post: Post) => {
     res.send(post);
   }, (err: any) => {
     res.send(err).status(500);

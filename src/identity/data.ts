@@ -31,3 +31,9 @@ export const MockUserDatabase: Array<IMockUser> = [
     email: 'john@fake.com',
   },
 ];
+
+export function findUser(id: number): IMockUser | undefined {
+  return MockUserDatabase.filter((next) => {
+    return next.id === id;
+  })[0];
+}

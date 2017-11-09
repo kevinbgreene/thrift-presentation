@@ -5,43 +5,21 @@ import {
 } from '@creditkarma/thrift-server-hapi';
 
 import {
-  User,
-  UserService,
-  UserServiceException,
-} from '../codegen/com/identity/v2/UserService';
+  serviceProcessor as serviceProcessorV1,
+} from './serviceProcessor_v1';
 
 import {
-  SERVER_CONFIG,
+  serviceProcessor as serviceProcessorV2,
+} from './serviceProcessor_v2';
+
+import {
+  SERVER_CONFIG_V1,
+  SERVER_CONFIG_V2,
 } from './config';
-
-import {
-  IMockUser,
-  MockUserDatabase,
-} from './data';
-
-function findUser(id: number): IMockUser | undefined {
-  return MockUserDatabase.filter((next) => {
-    return next.id === id;
-  })[0];
-}
-
-const serviceProcessor: UserService.Processor<Hapi.Request> =
-  new UserService.Processor({
-    getUser(id: number, context?: Hapi.Request): User {
-      const user = findUser(id);
-      if (user !== undefined) {
-        return new User(user);
-      } else {
-        throw new UserServiceException({
-          message: `Unable to find user for id: ${id}`,
-        });
-      }
-    },
-  });
 
 const server = new Hapi.Server({ debug: { request: ['error'] } });
 
-server.connection({ port: SERVER_CONFIG.port });
+server.connection({ port: SERVER_CONFIG_V1.port });
 
 /**
  * Register the thrift plugin.
@@ -64,10 +42,25 @@ server.register(ThriftPlugin, (err: any) => {
  */
 server.route({
   method: 'POST',
-  path: '/',
+  path: SERVER_CONFIG_V1.path,
   handler: {
     thrift: {
-      service: serviceProcessor,
+      service: serviceProcessorV1,
+    },
+  },
+  config: {
+    payload: {
+      parse: false,
+    },
+  },
+});
+
+server.route({
+  method: 'POST',
+  path: SERVER_CONFIG_V2.path,
+  handler: {
+    thrift: {
+      service: serviceProcessorV2,
     },
   },
   config: {
@@ -84,5 +77,5 @@ server.start((err: any) => {
   if (err) {
     throw err;
   }
-  console.log('info', `Server running on port ${SERVER_CONFIG.port}`);
+  console.log('info', `Server running on port ${SERVER_CONFIG_V1.port}`);
 });

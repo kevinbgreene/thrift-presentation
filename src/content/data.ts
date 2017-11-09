@@ -56,3 +56,9 @@ export const MockPostDatabase: Array<IMockPost> = [
     body: '',
   },
 ];
+
+export function findPost(id: number): IMockPost | undefined {
+  return MockPostDatabase.filter((next) => {
+    return next.id === id;
+  })[0];
+}

@@ -2,9 +2,7 @@ namespace js com.identity.v1
 
 struct User {
   1: required i32 id
-  2: required string firstName
-  3: required string lastName
-  4: optional string email
+  2: required string name
 }
 
 exception UserServiceException {
